@@ -1,21 +1,29 @@
 package com.example.cameraxbasics
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresPermission
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture.OnImageCapturedCallback
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
+import androidx.camera.view.video.AudioConfig
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -27,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -43,10 +52,13 @@ import com.example.cameraxbasics.ui.theme.CameraXBasicsTheme
 import com.example.cameraxbasics.ui.theme.PhotoBottomSheetContent
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     var permissionBoolean : Boolean ?= false
+    private var recording: Recording? = null
+    @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -134,6 +146,17 @@ class MainActivity : ComponentActivity() {
                                     contentDescription = "Take photo"
                                 )
                             }
+
+                            IconButton(
+                                onClick = {
+                                    recordVideo(controller)
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Videocam,
+                                    contentDescription = "Record video"
+                                )
+                            }
                         }
                     }
 
@@ -200,5 +223,43 @@ class MainActivity : ComponentActivity() {
                 android.Manifest.permission.RECORD_AUDIO
             )
         )
+    }
+
+
+
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    private fun recordVideo(controller: LifecycleCameraController){
+        if (recording!=null){
+            recording?.stop()
+            recording = null
+            return
+        }
+        val outputFile = File(filesDir,"my-recording.mp4")
+        recording= controller.startRecording(FileOutputOptions.Builder(outputFile).build() ,
+            AudioConfig.create(true) , ContextCompat.getMainExecutor(applicationContext))
+        { event->
+            when(event){
+                 is VideoRecordEvent.Finalize -> {
+                     if (event.hasError()){
+                         recording?.close()
+                         recording = null
+                         Toast.makeText(
+                             applicationContext,
+                             "Video capture failed",
+                             Toast.LENGTH_LONG
+                         ).show()
+                     }
+                     else{
+                         Toast.makeText(
+                             applicationContext,
+                             "Video capture succeeded",
+                             Toast.LENGTH_SHORT
+                         ).show()
+                     }
+
+                }
+            }
+        }
+
     }
 }
